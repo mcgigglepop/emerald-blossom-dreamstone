@@ -11,14 +11,15 @@ const SchemaVersion = 1
 
 // Entry represents a single password entry
 type Entry struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Username  string    `json:"username"`
-	Password  string    `json:"password"`
-	URL       string    `json:"url"`
-	Notes     string    `json:"notes"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Username    string    `json:"username"`
+	Password    string    `json:"password"`
+	URL         string    `json:"url"`
+	Notes       string    `json:"notes"`
+	BackupCodes []string  `json:"backup_codes,omitempty"` // 2FA/authenticator backup codes
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // Vault represents the plaintext vault structure
@@ -38,17 +39,18 @@ func NewVault() *Vault {
 }
 
 // AddEntry adds a new entry to the vault
-func (v *Vault) AddEntry(name, username, password, url, notes string) *Entry {
+func (v *Vault) AddEntry(name, username, password, url, notes string, backupCodes []string) *Entry {
 	now := time.Now()
 	entry := Entry{
-		ID:        uuid.New().String(),
-		Name:      name,
-		Username:  username,
-		Password:  password,
-		URL:       url,
-		Notes:     notes,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:          uuid.New().String(),
+		Name:        name,
+		Username:    username,
+		Password:    password,
+		URL:         url,
+		Notes:       notes,
+		BackupCodes: backupCodes,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 	v.Entries = append(v.Entries, entry)
 	return &entry
@@ -101,7 +103,7 @@ func (v *Vault) ListEntries() []EntrySummary {
 }
 
 // UpdateEntry updates an existing entry
-func (v *Vault) UpdateEntry(identifier string, name, username, password, url, notes string) bool {
+func (v *Vault) UpdateEntry(identifier string, name, username, password, url, notes string, backupCodes []string) bool {
 	entry := v.GetEntry(identifier)
 	if entry == nil {
 		return false
@@ -122,6 +124,9 @@ func (v *Vault) UpdateEntry(identifier string, name, username, password, url, no
 	if notes != "" {
 		entry.Notes = notes
 	}
+	if backupCodes != nil {
+		entry.BackupCodes = backupCodes
+	}
 	entry.UpdatedAt = time.Now()
 	return true
 }
@@ -139,4 +144,3 @@ func FromJSON(data []byte) (*Vault, error) {
 	}
 	return &v, nil
 }
-

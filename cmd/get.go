@@ -30,6 +30,12 @@ var getCmd = &cobra.Command{
 		if entry.Notes != "" {
 			fmt.Printf("Notes: %s\n", entry.Notes)
 		}
+		if len(entry.BackupCodes) > 0 {
+			fmt.Printf("Backup Codes:\n")
+			for i, code := range entry.BackupCodes {
+				fmt.Printf("  %d. %s\n", i+1, code)
+			}
+		}
 		fmt.Printf("Created: %s\n", entry.CreatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("Updated: %s\n", entry.UpdatedAt.Format("2006-01-02 15:04:05"))
 

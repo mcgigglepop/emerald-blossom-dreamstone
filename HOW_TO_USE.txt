@@ -152,10 +152,34 @@ Before using most commands, you need to unlock the vault:
   Or: vaultctl unlock
 
 Enter your master password when prompted. The vault stays unlocked for the
-duration of your CLI session.
+duration of your terminal session (30 minutes by default).
+
+SESSION-BASED UNLOCKING
+
+vaultctl uses session-based unlocking, which means you only need to enter
+your master password ONCE per terminal session. After unlocking:
+
+- All subsequent commands (add, get, list, remove, etc.) work automatically
+- No password prompt needed for 30 minutes
+- Session persists across different terminal windows in the same session
+- Session expires after 30 minutes of inactivity
+
+How it works:
+1. First command: Run `vaultctl unlock` and enter master password
+2. Session created: Vault key is encrypted and stored in ~/.vaultctl/session.json
+3. Subsequent commands: Automatically use the session (no password needed)
+4. Session expires: After 30 minutes, you'll be prompted for password again
+
+LOCK THE VAULT
+
+To manually lock the vault and clear the session:
+  ./run.sh run lock
+  Or: vaultctl lock
+
+This clears the session and requires you to unlock again for the next command.
 
 Note: Some commands (like add, get, list) will automatically prompt you to
-unlock if the vault is locked.
+unlock if the vault is locked or the session has expired.
 
 ADD A PASSWORD ENTRY
 
@@ -289,22 +313,27 @@ EXAMPLE 1: Complete Workflow (Using run.sh)
    Confirm master password: ********
    Vault initialized and synced to DynamoDB
 
-3. Add entries:
+3. Unlock the vault (only needed once per session):
+   ./run.sh run unlock
+   Enter master password: ********
+   Vault unlocked successfully
+
+4. Add entries (no password prompt needed - using session):
    ./run.sh run add --name "Gmail" --username "me@gmail.com" --url "https://gmail.com"
-   Enter password: ********
+   Enter password: ********  (this is the entry password, not master password)
    Entry 'Gmail' added successfully
 
    ./run.sh run add --name "GitHub" --username "developer" --url "https://github.com"
-   Enter password: ********
+   Enter password: ********  (entry password)
    Entry 'GitHub' added successfully
 
-4. List entries:
+5. List entries (no password needed):
    ./run.sh run list
    NAME    USERNAME    URL                  UPDATED
    Gmail   me@gmail.com https://gmail.com    2025-01-16 10:30:00
    GitHub  developer   https://github.com    2025-01-16 10:31:00
 
-5. Get an entry:
+6. Get an entry (no password needed):
    ./run.sh run get Gmail
    Name: Gmail
    Username: me@gmail.com
@@ -313,9 +342,12 @@ EXAMPLE 1: Complete Workflow (Using run.sh)
    Created: 2025-01-16 10:30:00
    Updated: 2025-01-16 10:30:00
 
-6. Sync with remote:
+7. Sync with remote (no password needed):
    ./run.sh run sync
    Vault synced successfully (version 3)
+
+Note: After unlocking once, all subsequent commands work without prompting
+for the master password for 30 minutes. The session persists across commands.
 
 ALTERNATIVE: Using vaultctl directly (after building)
 
@@ -327,17 +359,22 @@ If you've already built vaultctl, you can use it directly:
    Confirm master password: ********
    Vault initialized and synced to DynamoDB
 
-2. Add entries:
+2. Unlock the vault (only needed once per session):
+   vaultctl unlock
+   Enter master password: ********
+   Vault unlocked successfully
+
+3. Add entries (no master password prompt - using session):
    vaultctl add --name "Gmail" --username "me@gmail.com" --url "https://gmail.com"
-   Enter password: ********
+   Enter password: ********  (entry password, not master password)
    Entry 'Gmail' added successfully
 
-3. List entries:
+4. List entries (no password needed):
    vaultctl list
    NAME    USERNAME    URL                  UPDATED
    Gmail   me@gmail.com https://gmail.com    2025-01-16 10:30:00
 
-4. Get an entry:
+5. Get an entry (no password needed):
    vaultctl get Gmail
    Name: Gmail
    Username: me@gmail.com
@@ -346,15 +383,19 @@ If you've already built vaultctl, you can use it directly:
    Created: 2025-01-16 10:30:00
    Updated: 2025-01-16 10:30:00
 
-5. Sync with remote:
+6. Sync with remote (no password needed):
    vaultctl sync
    Vault synced successfully (version 3)
+
+7. Lock the vault when done:
+   vaultctl lock
+   Vault locked successfully
 
 EXAMPLE 2: Working Offline
 
 If DynamoDB is not available, you can still use vaultctl locally:
 
-1. Unlock vault:
+1. Unlock vault (only once per session):
    ./run.sh run unlock
    Enter master password: ********
    Vault unlocked successfully
@@ -364,13 +405,15 @@ If DynamoDB is not available, you can still use vaultctl locally:
    Enter master password: ********
    Vault unlocked successfully
 
-2. Add entries (they won't sync, but will be saved locally):
+2. Add entries (no master password needed - session active):
    ./run.sh run add --name "Local Entry" --no-sync
+   Enter password: ********  (entry password only)
    
    Or:
    vaultctl add --name "Local Entry" --no-sync
+   Enter password: ********  (entry password only)
 
-3. When DynamoDB is available again:
+3. When DynamoDB is available again (no password needed):
    ./run.sh run sync
    
    Or:
@@ -403,6 +446,29 @@ EXAMPLE 4: Using run.sh Features
 3. Clean build artifacts:
    ./run.sh clean
    Removes the vaultctl binary (useful for a fresh build)
+
+EXAMPLE 5: Session Management
+
+1. Unlock once at the start of your work session:
+   vaultctl unlock
+   Enter master password: ********
+   Vault unlocked successfully
+
+2. Work with multiple commands (no password prompts):
+   vaultctl add --name "Work Email" --username "user@company.com"
+   vaultctl list
+   vaultctl get "Work Email"
+   vaultctl remove "Old Entry"
+   # All work without master password prompts!
+
+3. After 30 minutes, session expires:
+   vaultctl list
+   Enter master password: ********  (session expired, need to unlock again)
+
+4. Manually lock when done:
+   vaultctl lock
+   Vault locked successfully
+   # Next command will require unlock
 
 ================================================================================
                             TROUBLESHOOTING
@@ -449,6 +515,23 @@ SOLUTION:
 - Check that vault file is not corrupted
 - Try restoring from a backup if available
 - Ensure you're using the same vault file that was encrypted
+- If using session, try clearing it: vaultctl lock, then unlock again
+
+PROBLEM: "session expired" or "no active session" error
+
+SOLUTION:
+- This is normal after 30 minutes of inactivity
+- Simply run: vaultctl unlock
+- Enter your master password to create a new session
+- Sessions expire for security - this is expected behavior
+
+PROBLEM: Session not persisting across commands
+
+SOLUTION:
+- Ensure you're in the same terminal session (same shell)
+- Check that ~/.vaultctl/session.json exists and has correct permissions
+- Verify VAULTCTL_SESSION_KEY environment variable is set
+- Try unlocking again: vaultctl unlock
 
 PROBLEM: Command not found
 
@@ -484,6 +567,8 @@ SOLUTION:
    - Be cautious when using on shared systems
    - Clear terminal history if passwords were displayed
    - Lock your screen when not using the terminal
+   - Use `vaultctl lock` when finished working to clear the session
+   - Sessions expire after 30 minutes for security
 
 5. BACKUPS
    - Create regular backups: vaultctl backup
@@ -502,6 +587,10 @@ Configuration:
 
 Vault file:
   ~/.vaultctl/vault.db
+
+Session file:
+  ~/.vaultctl/session.json
+  (Contains encrypted session data - automatically managed)
 
 Backups:
   ~/.vaultctl/backups/vault-*.enc
@@ -545,6 +634,19 @@ vaultctl works completely offline. DynamoDB is optional for:
 
 All operations work locally without DynamoDB.
 
+SESSION MANAGEMENT
+
+vaultctl uses session-based unlocking for convenience:
+- Unlock once: Enter master password when you start working
+- Work freely: All commands work without password prompts for 30 minutes
+- Auto-expire: Session expires after 30 minutes of inactivity
+- Manual lock: Use `vaultctl lock` to end session early
+- Secure: Session key stored in environment variable, vault key encrypted on disk
+
+Session file location: ~/.vaultctl/session.json
+Session timeout: 30 minutes (default)
+Environment variable: VAULTCTL_SESSION_KEY (automatically set)
+
 ================================================================================
                             COMMAND REFERENCE
 ================================================================================
@@ -583,7 +685,10 @@ vaultctl init
   Initialize a new vault
 
 vaultctl unlock
-  Unlock the vault with master password
+  Unlock the vault with master password (creates a 30-minute session)
+
+vaultctl lock
+  Lock the vault and clear the session
 
 vaultctl add [flags]
   Add a new password entry

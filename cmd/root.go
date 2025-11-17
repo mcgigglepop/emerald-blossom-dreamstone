@@ -6,13 +6,15 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vaultctl/vaultctl/internal/config"
+	"github.com/vaultctl/vaultctl/internal/session"
 	"github.com/vaultctl/vaultctl/internal/storage"
 )
 
 var (
-	cfg        *config.Config
-	localStore *storage.LocalStorage
+	cfg         *config.Config
+	localStore  *storage.LocalStorage
 	dynamoStore *storage.DynamoDBStorage
+	sessionMgr  *session.SessionManager
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -33,6 +35,9 @@ func Execute() error {
 	}
 
 	localStore = storage.NewLocalStorage(cfg.VaultPath)
+
+	// Initialize session manager
+	sessionMgr = session.NewSessionManager(cfg.GetSessionPath(), session.DefaultSessionTimeout)
 
 	// Try to initialize DynamoDB storage, but don't fail if it's not configured
 	dynamoStore, err = storage.NewDynamoDBStorage(cfg.TableName, cfg.UserID)

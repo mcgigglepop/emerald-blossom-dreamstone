@@ -16,6 +16,12 @@ type Config struct {
 	ConfigPath   string `json:"-"` // Not stored, just for reference
 }
 
+// GetSessionPath returns the path to the session file
+func (c *Config) GetSessionPath() string {
+	homeDir, _ := os.UserHomeDir()
+	return filepath.Join(homeDir, ".vaultctl", "session.json")
+}
+
 // DefaultConfig returns default configuration
 func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()

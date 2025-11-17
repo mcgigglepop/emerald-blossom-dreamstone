@@ -69,6 +69,28 @@ resource "aws_iam_access_key" "vaultctl" {
   user = aws_iam_user.vaultctl.name
 }
 
+# Random 32-byte key for session encryption
+resource "random_bytes" "session_key" {
+  length = 32
+}
+
+# AWS Secrets Manager secret for session key
+resource "aws_secretsmanager_secret" "session_key" {
+  name        = "vaultctl/session-key"
+  description = "Vaultctl session master key for encrypting session keys"
+
+  tags = {
+    Name        = "vaultctl-session-key"
+    Description = "Session master key for vaultctl"
+  }
+}
+
+# Store the base64-encoded session key in Secrets Manager
+resource "aws_secretsmanager_secret_version" "session_key" {
+  secret_id     = aws_secretsmanager_secret.session_key.id
+  secret_string = random_bytes.session_key.base64
+}
+
 # IAM Policy for DynamoDB access
 resource "aws_iam_user_policy" "vaultctl_dynamodb" {
   name = "${var.iam_user_name}-dynamodb-policy"
@@ -96,6 +118,26 @@ resource "aws_iam_user_policy" "vaultctl_dynamodb" {
           "dynamodb:DescribeTable"
         ]
         Resource = aws_dynamodb_table.vaults.arn
+      }
+    ]
+  })
+}
+
+# IAM Policy for Secrets Manager access
+resource "aws_iam_user_policy" "vaultctl_secretsmanager" {
+  name = "${var.iam_user_name}-secretsmanager-policy"
+  user = aws_iam_user.vaultctl.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+        ]
+        Resource = aws_secretsmanager_secret.session_key.arn
       }
     ]
   })

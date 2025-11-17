@@ -67,7 +67,7 @@ func NewSessionManager(sessionPath string, timeout time.Duration, secretName, re
 func (sm *SessionManager) getMasterKey(ctx context.Context) ([]byte, error) {
 	// Try to use AWS Secrets Manager first
 	if sm.useSecretsMgr && sm.secretsClient != nil {
-		key, err := sm.secretsClient.GetOrCreateSessionKey(ctx)
+		key, err := sm.secretsClient.GetSessionKey(ctx)
 		if err == nil {
 			return key, nil
 		}

@@ -2,7 +2,6 @@ package secrets
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 
@@ -35,22 +34,21 @@ func NewSecretsManagerClient(secretName, region string) (*SecretsManagerClient, 
 	}, nil
 }
 
-// GetOrCreateSessionKey retrieves the session master key from Secrets Manager,
-// or creates it if it doesn't exist
-func (smc *SecretsManagerClient) GetOrCreateSessionKey(ctx context.Context) ([]byte, error) {
-	// Try to get existing secret
+// GetSessionKey retrieves the session master key from Secrets Manager
+// The secret must exist beforehand - it will not be created automatically
+func (smc *SecretsManagerClient) GetSessionKey(ctx context.Context) ([]byte, error) {
+	// Get the secret from Secrets Manager
 	result, err := smc.client.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(smc.secretName),
 	})
 	if err != nil {
 		// Check if it's a ResourceNotFoundException
 		if _, ok := err.(*types.ResourceNotFoundException); ok {
-			// Secret doesn't exist, create it
-			return smc.createSessionKey(ctx)
+			return nil, fmt.Errorf("secret '%s' not found in AWS Secrets Manager. Please create it first", smc.secretName)
 		}
 		// Check error code as fallback
 		if err, ok := err.(interface{ ErrorCode() string }); ok && err.ErrorCode() == "ResourceNotFoundException" {
-			return smc.createSessionKey(ctx)
+			return nil, fmt.Errorf("secret '%s' not found in AWS Secrets Manager. Please create it first", smc.secretName)
 		}
 		return nil, fmt.Errorf("failed to get secret: %w", err)
 	}
@@ -59,30 +57,6 @@ func (smc *SecretsManagerClient) GetOrCreateSessionKey(ctx context.Context) ([]b
 	key, err := base64.StdEncoding.DecodeString(*result.SecretString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode secret: %w", err)
-	}
-
-	return key, nil
-}
-
-// createSessionKey creates a new session master key and stores it in Secrets Manager
-func (smc *SecretsManagerClient) createSessionKey(ctx context.Context) ([]byte, error) {
-	// Generate a random 32-byte key
-	key := make([]byte, 32)
-	if _, err := rand.Read(key); err != nil {
-		return nil, fmt.Errorf("failed to generate session key: %w", err)
-	}
-
-	// Encode as base64 for storage
-	encoded := base64.StdEncoding.EncodeToString(key)
-
-	// Create the secret in Secrets Manager
-	_, err := smc.client.CreateSecret(ctx, &secretsmanager.CreateSecretInput{
-		Name:         aws.String(smc.secretName),
-		SecretString: aws.String(encoded),
-		Description:  aws.String("Vaultctl session master key for encrypting session keys"),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create secret: %w", err)
 	}
 
 	return key, nil

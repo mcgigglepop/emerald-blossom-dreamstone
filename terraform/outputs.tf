@@ -40,6 +40,16 @@ output "s3_backup_bucket_arn" {
   value       = var.create_s3_backup_bucket ? aws_s3_bucket.vault_backups[0].arn : null
 }
 
+output "secrets_manager_secret_name" {
+  description = "Name of the Secrets Manager secret for session key"
+  value       = aws_secretsmanager_secret.session_key.name
+}
+
+output "secrets_manager_secret_arn" {
+  description = "ARN of the Secrets Manager secret for session key"
+  value       = aws_secretsmanager_secret.session_key.arn
+}
+
 output "configuration_instructions" {
   description = "Instructions for configuring vaultctl"
   sensitive   = true
@@ -59,7 +69,8 @@ output "configuration_instructions" {
        {
          "aws_region": "${var.aws_region}",
          "table_name": "${aws_dynamodb_table.vaults.name}",
-         "user_id": "default"
+         "user_id": "default",
+         "session_secret_name": "${aws_secretsmanager_secret.session_key.name}"
        }
 
     4. Initialize your vault:

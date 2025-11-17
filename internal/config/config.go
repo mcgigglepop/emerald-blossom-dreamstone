@@ -9,12 +9,12 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	AWSRegion          string `json:"aws_region"`
-	TableName          string `json:"table_name"`
-	UserID             string `json:"user_id"`
-	VaultPath          string `json:"vault_path"`
-	SessionSecretName  string `json:"session_secret_name,omitempty"` // AWS Secrets Manager secret name for session key
-	ConfigPath         string `json:"-"`                               // Not stored, just for reference
+	AWSRegion         string `json:"aws_region"`
+	TableName         string `json:"table_name"`
+	UserID            string `json:"user_id"`
+	VaultPath         string `json:"vault_path"`
+	SessionSecretName string `json:"session_secret_name,omitempty"` // AWS Secrets Manager secret name for session key
+	ConfigPath        string `json:"-"`                             // Not stored, just for reference
 }
 
 // GetSessionPath returns the path to the session file
@@ -27,7 +27,7 @@ func (c *Config) GetSessionPath() string {
 func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()
 	return &Config{
-		AWSRegion:         "us-east-1",
+		AWSRegion:         "us-west-2",
 		TableName:         "vaultctl_vaults",
 		UserID:            "default",
 		VaultPath:         filepath.Join(homeDir, ".vaultctl", "vault.db"),
@@ -39,7 +39,7 @@ func DefaultConfig() *Config {
 // LoadConfig loads configuration from file
 func LoadConfig() (*Config, error) {
 	cfg := DefaultConfig()
-	
+
 	data, err := os.ReadFile(cfg.ConfigPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -75,4 +75,3 @@ func (c *Config) SaveConfig() error {
 
 	return nil
 }
-

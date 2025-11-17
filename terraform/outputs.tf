@@ -42,6 +42,7 @@ output "s3_backup_bucket_arn" {
 
 output "configuration_instructions" {
   description = "Instructions for configuring vaultctl"
+  sensitive   = true
   value       = <<-EOT
     Configure vaultctl with the following:
 

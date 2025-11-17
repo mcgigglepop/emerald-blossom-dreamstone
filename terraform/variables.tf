@@ -41,12 +41,8 @@ variable "create_s3_backup_bucket" {
 }
 
 variable "s3_backup_bucket_name" {
-  description = "Name of the S3 bucket for backups (must be globally unique)"
+  description = "Name of the S3 bucket for backups (must be globally unique). Required if create_s3_backup_bucket is true."
   type        = string
   default     = ""
-  validation {
-    condition     = var.create_s3_backup_bucket ? var.s3_backup_bucket_name != "" : true
-    error_message = "s3_backup_bucket_name must be provided if create_s3_backup_bucket is true."
-  }
 }
 

@@ -106,6 +106,14 @@ resource "aws_s3_bucket" "vault_backups" {
   count  = var.create_s3_backup_bucket ? 1 : 0
   bucket = var.s3_backup_bucket_name
 
+  # Validation: ensure bucket name is provided when creating bucket
+  lifecycle {
+    precondition {
+      condition     = !var.create_s3_backup_bucket || var.s3_backup_bucket_name != ""
+      error_message = "s3_backup_bucket_name must be provided when create_s3_backup_bucket is true."
+    }
+  }
+
   tags = {
     Name        = "${var.s3_backup_bucket_name}-backups"
     Description = "S3 bucket for vaultctl encrypted backups"

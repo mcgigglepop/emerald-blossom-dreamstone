@@ -307,6 +307,27 @@ Or specify a custom path:
 
 The backup is encrypted with the same encryption as your vault.
 
+RESTORE FROM BACKUP
+
+Restore your vault from a backup file:
+  ./run.sh run restore
+  Or: vaultctl restore
+
+If no backup path is provided, the command will:
+1. List all available backups in ~/.vaultctl/backups/
+2. Display backup details (filename, creation date, size)
+3. Prompt you to select which backup to restore
+4. Optionally create a backup of your current vault before restoring
+5. Replace your vault.db with the selected backup
+
+You can also restore directly from a specific backup file:
+  ./run.sh run restore /path/to/backup.enc
+  Or: vaultctl restore /path/to/backup.enc
+
+IMPORTANT: Restoring will replace your current vault. Make sure you have
+a backup of your current vault if needed. The restore command will offer
+to create a backup of your current vault before restoring.
+
 ROTATE MASTER PASSWORD
 
 Change your master password:
@@ -487,9 +508,28 @@ EXAMPLE 3: Backup and Restore
    vaultctl backup
    Backup created at: ~/.vaultctl/backups/vault-2025-01-16T10-00-00Z.enc
 
-2. To restore from backup:
-   - Copy the backup file to your vault location
-   - Or use it as a reference (it's encrypted, so you still need master password)
+2. List and restore from backup:
+   ./run.sh run restore
+   Available backups:
+   
+     1. vault-2025-01-16T10-00-00Z.enc
+        Created: 2025-01-16 10:00:00
+        Size: 2.5 KB
+   
+     2. vault-2025-01-15T14-30-00Z.enc
+        Created: 2025-01-15 14:30:00
+        Size: 2.3 KB
+   
+   Select backup to restore (enter number): 1
+   Selected: vault-2025-01-16T10-00-00Z.enc
+   Current vault exists. Create a backup before restoring? (y/n): y
+   Current vault backed up to: ~/.vaultctl/backups/vault-before-restore-2025-01-16T10-05-00Z.enc
+   Vault restored successfully from: vault-2025-01-16T10-00-00Z.enc
+   You can now unlock the vault with: vaultctl unlock
+
+3. Restore directly from a specific backup file:
+   ./run.sh run restore /path/to/backup.enc
+   Or: vaultctl restore /path/to/backup.enc
 
 EXAMPLE 4: Using run.sh Features
 
@@ -771,6 +811,10 @@ vaultctl sync
 
 vaultctl backup [output_path]
   Create an encrypted backup
+
+vaultctl restore [backup_path]
+  Restore vault from a backup
+  If no path provided, lists available backups for selection
 
 vaultctl rotate-master
   Change the master password

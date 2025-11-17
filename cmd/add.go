@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
+	"github.com/vaultctl/vaultctl/internal/crypto"
 	"golang.org/x/term"
 )
 
@@ -83,8 +84,11 @@ var addCmd = &cobra.Command{
 			}
 		}
 
-		// Add entry
-		unlockedVault.AddEntry(addName, addUsername, string(password), addURL, addNotes, backupCodes)
+		// Add entry (password is []byte, no conversion to string)
+		unlockedVault.AddEntry(addName, addUsername, password, addURL, addNotes, backupCodes)
+		
+		// Zeroize password from memory
+		crypto.Zeroize(password)
 
 		// Save vault
 		sync := !cmd.Flags().Changed("no-sync")

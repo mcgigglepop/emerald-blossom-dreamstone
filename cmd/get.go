@@ -23,7 +23,7 @@ var getCmd = &cobra.Command{
 
 		fmt.Printf("Name: %s\n", entry.Name)
 		fmt.Printf("Username: %s\n", entry.Username)
-		fmt.Printf("Password: %s\n", entry.Password)
+		fmt.Printf("Password: %s\n", string(entry.Password))
 		if entry.URL != "" {
 			fmt.Printf("URL: %s\n", entry.URL)
 		}

@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/vaultctl/vaultctl/internal/crypto"
+	"github.com/vaultctl/vaultctl/internal/secrets"
 )
 
 const (
@@ -20,51 +22,76 @@ const (
 // SessionData represents the encrypted session data
 type SessionData struct {
 	EncryptedVaultKey string    `json:"encrypted_vault_key"` // base64
-	Nonce             string    `json:"nonce"`                // base64
-	SessionKey        string    `json:"session_key"`          // base64 - encrypted session key
-	SessionKeyNonce   string    `json:"session_key_nonce"`    // base64 - nonce for session key encryption
+	Nonce             string    `json:"nonce"`               // base64
+	SessionKey        string    `json:"session_key"`         // base64 - encrypted session key
+	SessionKeyNonce   string    `json:"session_key_nonce"`   // base64 - nonce for session key encryption
 	CreatedAt         time.Time `json:"created_at"`
 	ExpiresAt         time.Time `json:"expires_at"`
 }
 
 // SessionManager handles session management
 type SessionManager struct {
-	sessionPath string
-	sessionKey  []byte
-	timeout     time.Duration
+	sessionPath   string
+	sessionKey    []byte
+	timeout       time.Duration
+	secretsClient *secrets.SecretsManagerClient
+	useSecretsMgr bool
 }
 
 // NewSessionManager creates a new session manager
-func NewSessionManager(sessionPath string, timeout time.Duration) *SessionManager {
-	return &SessionManager{
-		sessionPath: sessionPath,
-		timeout:     timeout,
+func NewSessionManager(sessionPath string, timeout time.Duration, secretName, region string) *SessionManager {
+	sm := &SessionManager{
+		sessionPath:   sessionPath,
+		timeout:       timeout,
+		useSecretsMgr: false,
 	}
+
+	// Try to initialize Secrets Manager client
+	if secretName != "" && region != "" {
+		client, err := secrets.NewSecretsManagerClient(secretName, region)
+		if err == nil {
+			// Check if Secrets Manager is available
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if client.IsAvailable(ctx) {
+				sm.secretsClient = client
+				sm.useSecretsMgr = true
+			}
+		}
+	}
+
+	return sm
 }
 
-// getMasterKey derives a master key from user-specific data for encrypting session keys
-func (sm *SessionManager) getMasterKey() ([]byte, error) {
-	// Use user's home directory as a source for key derivation
+// getMasterKey retrieves the master key from AWS Secrets Manager or falls back to local derivation
+func (sm *SessionManager) getMasterKey(ctx context.Context) ([]byte, error) {
+	// Try to use AWS Secrets Manager first
+	if sm.useSecretsMgr && sm.secretsClient != nil {
+		key, err := sm.secretsClient.GetOrCreateSessionKey(ctx)
+		if err == nil {
+			return key, nil
+		}
+		// If Secrets Manager fails, fall back to local derivation (for backward compatibility)
+		fmt.Fprintf(os.Stderr, "Warning: Failed to retrieve session key from AWS Secrets Manager: %v. Falling back to local derivation.\n", err)
+	}
+
+	// Fallback: derive a master key from user-specific data (less secure, but backward compatible)
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	// Also use username for additional entropy
 	username := os.Getenv("USER")
 	if username == "" {
 		username = os.Getenv("USERNAME")
 	}
 
-	// Create a salt from home directory and username
 	salt := []byte(fmt.Sprintf("%s:%s:vaultctl", homeDir, username))
 
-	// Derive a key using a simple hash (for session key encryption only)
-	// This is not for password derivation, just for encrypting the session key
 	key := crypto.DeriveMasterKey([]byte(homeDir+username), salt, crypto.KDFParams{
-		Algo:       "argon2id",
-		Memory:     32 * 1024, // 32 MB
-		Iterations: 2,
+		Algo:        "argon2id",
+		Memory:      32 * 1024, // 32 MB
+		Iterations:  2,
 		Parallelism: 1,
 	})
 
@@ -72,7 +99,7 @@ func (sm *SessionManager) getMasterKey() ([]byte, error) {
 }
 
 // GetSessionKey gets or creates a session key, loading from session file if available
-func (sm *SessionManager) GetSessionKey() ([]byte, error) {
+func (sm *SessionManager) GetSessionKey(ctx context.Context) ([]byte, error) {
 	if sm.sessionKey != nil {
 		return sm.sessionKey, nil
 	}
@@ -84,7 +111,7 @@ func (sm *SessionManager) GetSessionKey() ([]byte, error) {
 			var sessionData SessionData
 			if json.Unmarshal(data, &sessionData) == nil && sessionData.SessionKey != "" {
 				// Decrypt the session key
-				masterKey, err := sm.getMasterKey()
+				masterKey, err := sm.getMasterKey(ctx)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get master key: %w", err)
 				}
@@ -119,8 +146,8 @@ func (sm *SessionManager) GetSessionKey() ([]byte, error) {
 }
 
 // SaveSession saves the vault key encrypted with session key
-func (sm *SessionManager) SaveSession(vaultKey []byte) error {
-	sessionKey, err := sm.GetSessionKey()
+func (sm *SessionManager) SaveSession(ctx context.Context, vaultKey []byte) error {
+	sessionKey, err := sm.GetSessionKey(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get session key: %w", err)
 	}
@@ -132,7 +159,7 @@ func (sm *SessionManager) SaveSession(vaultKey []byte) error {
 	}
 
 	// Encrypt and store the session key itself (so it persists across processes)
-	masterKey, err := sm.getMasterKey()
+	masterKey, err := sm.getMasterKey(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get master key: %w", err)
 	}
@@ -172,7 +199,7 @@ func (sm *SessionManager) SaveSession(vaultKey []byte) error {
 }
 
 // LoadSession loads and decrypts the vault key from session
-func (sm *SessionManager) LoadSession() ([]byte, error) {
+func (sm *SessionManager) LoadSession(ctx context.Context) ([]byte, error) {
 	// Check if session file exists
 	if _, err := os.Stat(sm.sessionPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("no active session")
@@ -200,7 +227,7 @@ func (sm *SessionManager) LoadSession() ([]byte, error) {
 		return nil, fmt.Errorf("session key not found in session data")
 	}
 
-	masterKey, err := sm.getMasterKey()
+	masterKey, err := sm.getMasterKey(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get master key: %w", err)
 	}
@@ -240,9 +267,14 @@ func (sm *SessionManager) LoadSession() ([]byte, error) {
 	return vaultKey, nil
 }
 
-// ClearSession removes the session file
+// ClearSession removes the session file and zeroizes the session key
 func (sm *SessionManager) ClearSession() error {
 	if _, err := os.Stat(sm.sessionPath); os.IsNotExist(err) {
+		// Zeroize session key even if file doesn't exist
+		if sm.sessionKey != nil {
+			crypto.Zeroize(sm.sessionKey)
+		}
+		sm.sessionKey = nil
 		return nil // Already cleared
 	}
 
@@ -250,14 +282,18 @@ func (sm *SessionManager) ClearSession() error {
 		return fmt.Errorf("failed to remove session file: %w", err)
 	}
 
+	// Zeroize session key from memory
+	if sm.sessionKey != nil {
+		crypto.Zeroize(sm.sessionKey)
+	}
 	sm.sessionKey = nil
 
 	return nil
 }
 
 // HasActiveSession checks if there's an active session
-func (sm *SessionManager) HasActiveSession() bool {
-	vaultKey, err := sm.LoadSession()
+func (sm *SessionManager) HasActiveSession(ctx context.Context) bool {
+	vaultKey, err := sm.LoadSession(ctx)
 	return err == nil && vaultKey != nil
 }
 
@@ -265,4 +301,3 @@ func (sm *SessionManager) HasActiveSession() bool {
 func (sm *SessionManager) GetSessionPath() string {
 	return sm.sessionPath
 }
-

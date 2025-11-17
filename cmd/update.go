@@ -6,6 +6,7 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
+	"github.com/vaultctl/vaultctl/internal/crypto"
 	"golang.org/x/term"
 )
 
@@ -53,16 +54,21 @@ var updateCmd = &cobra.Command{
 		}
 
 		// Handle password update
-		password := updatePassword
-		if cmd.Flags().Changed("password") && updatePassword == "" {
-			// Password flag was set but empty, prompt for new password
-			fmt.Print("Enter new password: ")
-			pwd, err := term.ReadPassword(int(syscall.Stdin))
-			if err != nil {
-				return fmt.Errorf("failed to read password: %w", err)
+		var password []byte
+		if cmd.Flags().Changed("password") {
+			if updatePassword == "" {
+				// Password flag was set but empty, prompt for new password
+				fmt.Print("Enter new password: ")
+				pwd, err := term.ReadPassword(int(syscall.Stdin))
+				if err != nil {
+					return fmt.Errorf("failed to read password: %w", err)
+				}
+				fmt.Println()
+				password = pwd
+			} else {
+				// Password provided via flag (less secure, but supported)
+				password = []byte(updatePassword)
 			}
-			fmt.Println()
-			password = string(pwd)
 		}
 
 		// Update entry
@@ -72,7 +78,16 @@ var updateCmd = &cobra.Command{
 		}
 		
 		if !unlockedVault.UpdateEntry(args[0], updateName, updateUsername, password, updateURL, updateNotes, codesToUpdate) {
+			// Zeroize password if update failed
+			if password != nil {
+				crypto.Zeroize(password)
+			}
 			return fmt.Errorf("failed to update entry")
+		}
+		
+		// Zeroize password from memory after use
+		if password != nil {
+			crypto.Zeroize(password)
 		}
 
 		// Save vault

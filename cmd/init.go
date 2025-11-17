@@ -38,6 +38,8 @@ var initCmd = &cobra.Command{
 		fmt.Println()
 
 		if !crypto.ConstantTimeCompare(password1, password2) {
+			crypto.Zeroize(password1)
+			crypto.Zeroize(password2)
 			return fmt.Errorf("passwords do not match")
 		}
 
@@ -120,6 +122,10 @@ var initCmd = &cobra.Command{
 		if err := cfg.SaveConfig(); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to save config: %v\n", err)
 		}
+
+		// Zeroize passwords from memory
+		crypto.Zeroize(password1)
+		crypto.Zeroize(password2)
 
 		return nil
 	},

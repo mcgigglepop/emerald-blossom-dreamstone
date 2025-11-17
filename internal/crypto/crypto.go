@@ -154,3 +154,12 @@ func ConstantTimeCompare(a, b []byte) bool {
 	return subtle.ConstantTimeCompare(a, b) == 1
 }
 
+// Zeroize overwrites a byte slice with zeros to clear sensitive data from memory
+func Zeroize(data []byte) {
+	if data != nil {
+		for i := range data {
+			data[i] = 0
+		}
+	}
+}
+

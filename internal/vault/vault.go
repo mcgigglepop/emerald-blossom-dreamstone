@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"time"
 
@@ -14,12 +15,49 @@ type Entry struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
 	Username    string    `json:"username"`
-	Password    string    `json:"password"`
+	Password    []byte    `json:"password"` // Stored as base64 in JSON for security
 	URL         string    `json:"url"`
 	Notes       string    `json:"notes"`
 	BackupCodes []string  `json:"backup_codes,omitempty"` // 2FA/authenticator backup codes
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// UnmarshalJSON custom unmarshaler for backward compatibility
+// Handles both old string format and new []byte format
+func (e *Entry) UnmarshalJSON(data []byte) error {
+	// Use a temporary struct to handle both formats
+	type Alias Entry
+	aux := &struct {
+		Password interface{} `json:"password"` // Can be string or []byte
+		*Alias
+	}{
+		Alias: (*Alias)(e),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	// Handle password field - can be string (old format) or base64 []byte (new format)
+	if aux.Password != nil {
+		switch v := aux.Password.(type) {
+		case string:
+			// Old format: string, or new format as base64 string
+			// Try to decode as base64 first
+			if decoded, err := base64.StdEncoding.DecodeString(v); err == nil {
+				e.Password = decoded
+			} else {
+				// Not base64, treat as plain string (old format)
+				e.Password = []byte(v)
+			}
+		case []byte:
+			// Already []byte
+			e.Password = v
+		}
+	}
+
+	return nil
 }
 
 // Vault represents the plaintext vault structure
@@ -39,13 +77,17 @@ func NewVault() *Vault {
 }
 
 // AddEntry adds a new entry to the vault
-func (v *Vault) AddEntry(name, username, password, url, notes string, backupCodes []string) *Entry {
+func (v *Vault) AddEntry(name, username string, password []byte, url, notes string, backupCodes []string) *Entry {
 	now := time.Now()
+	// Make a copy of the password to avoid external modifications
+	passwordCopy := make([]byte, len(password))
+	copy(passwordCopy, password)
+	
 	entry := Entry{
 		ID:          uuid.New().String(),
 		Name:        name,
 		Username:    username,
-		Password:    password,
+		Password:    passwordCopy,
 		URL:         url,
 		Notes:       notes,
 		BackupCodes: backupCodes,
@@ -103,7 +145,7 @@ func (v *Vault) ListEntries() []EntrySummary {
 }
 
 // UpdateEntry updates an existing entry
-func (v *Vault) UpdateEntry(identifier string, name, username, password, url, notes string, backupCodes []string) bool {
+func (v *Vault) UpdateEntry(identifier string, name, username string, password []byte, url, notes string, backupCodes []string) bool {
 	entry := v.GetEntry(identifier)
 	if entry == nil {
 		return false
@@ -115,8 +157,11 @@ func (v *Vault) UpdateEntry(identifier string, name, username, password, url, no
 	if username != "" {
 		entry.Username = username
 	}
-	if password != "" {
-		entry.Password = password
+	if password != nil && len(password) > 0 {
+		// Make a copy to avoid external modifications
+		passwordCopy := make([]byte, len(password))
+		copy(passwordCopy, password)
+		entry.Password = passwordCopy
 	}
 	if url != "" {
 		entry.URL = url

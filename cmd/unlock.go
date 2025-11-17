@@ -66,9 +66,16 @@ var unlockCmd = &cobra.Command{
 		vaultKey = key
 
 		// Save session for future commands
-		if err := sessionMgr.SaveSession(key); err != nil {
+		ctx := cmd.Context()
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		if err := sessionMgr.SaveSession(ctx, key); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to save session: %v\n", err)
 		}
+		
+		// Zeroize master password from memory
+		crypto.Zeroize(password)
 
 		fmt.Println("Vault unlocked successfully")
 		return nil
@@ -88,7 +95,11 @@ func ensureUnlocked(cmd *cobra.Command) error {
 
 	// Try to load from session
 	if sessionMgr != nil {
-		if key, err := sessionMgr.LoadSession(); err == nil {
+		ctx := cmd.Context()
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		if key, err := sessionMgr.LoadSession(ctx); err == nil {
 			// Session is valid, decrypt vault with the key
 			ev, err := localStore.LoadEncryptedVault()
 			if err != nil {

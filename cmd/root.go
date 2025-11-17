@@ -36,8 +36,13 @@ func Execute() error {
 
 	localStore = storage.NewLocalStorage(cfg.VaultPath)
 
-	// Initialize session manager
-	sessionMgr = session.NewSessionManager(cfg.GetSessionPath(), session.DefaultSessionTimeout)
+	// Initialize session manager with AWS Secrets Manager support
+	sessionMgr = session.NewSessionManager(
+		cfg.GetSessionPath(),
+		session.DefaultSessionTimeout,
+		cfg.SessionSecretName,
+		cfg.AWSRegion,
+	)
 
 	// Try to initialize DynamoDB storage, but don't fail if it's not configured
 	dynamoStore, err = storage.NewDynamoDBStorage(cfg.TableName, cfg.UserID)

@@ -70,8 +70,13 @@ var rotateMasterCmd = &cobra.Command{
 
 		vaultKey, err := crypto.DecryptVaultKey(encVaultKey, vaultKeyNonce, currentMasterKey)
 		if err != nil {
+			crypto.Zeroize(currentPassword)
 			return fmt.Errorf("failed to decrypt vault key: %w", err)
 		}
+		
+		// Zeroize current password and master key after use
+		crypto.Zeroize(currentPassword)
+		crypto.Zeroize(currentMasterKey)
 
 		// Prompt for new master password
 		fmt.Print("Enter new master password: ")
@@ -89,6 +94,8 @@ var rotateMasterCmd = &cobra.Command{
 		fmt.Println()
 
 		if !crypto.ConstantTimeCompare(newPassword1, newPassword2) {
+			crypto.Zeroize(newPassword1)
+			crypto.Zeroize(newPassword2)
 			return fmt.Errorf("passwords do not match")
 		}
 
@@ -129,6 +136,12 @@ var rotateMasterCmd = &cobra.Command{
 				fmt.Fprintf(os.Stderr, "Warning: failed to save to DynamoDB: %v\n", err)
 			}
 		}
+
+		// Zeroize all passwords and keys from memory
+		crypto.Zeroize(newPassword1)
+		crypto.Zeroize(newPassword2)
+		crypto.Zeroize(newMasterKey)
+		crypto.Zeroize(vaultKey)
 
 		fmt.Println("Master password rotated successfully")
 		return nil

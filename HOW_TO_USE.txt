@@ -16,11 +16,37 @@ stores encrypted blobs and never sees your master password or decrypted data.
    - AWS account with DynamoDB access
 
 2. BUILD THE APPLICATION
+
+   OPTION A: Manual Build
    cd /path/to/emerald-blossom-dreamstone
    go mod download
    go build -o vaultctl
 
    This creates an executable named "vaultctl" in the current directory.
+
+   OPTION B: Using run.sh Script (Recommended)
+   The project includes a convenient run.sh script that automates building
+   and running the application.
+
+   First, make the script executable:
+   chmod +x run.sh
+
+   Then use it to build:
+   ./run.sh build
+
+   The script will:
+   - Check prerequisites (Go, AWS CLI)
+   - Download dependencies
+   - Build the application
+   - Provide colored status messages
+
+   You can also use it to run commands directly:
+   ./run.sh run init
+   ./run.sh run add --name github --username user@example.com
+   ./run.sh run list
+
+   For more information about run.sh:
+   ./run.sh help
 
 3. INSTALL (OPTIONAL)
    You can move the vaultctl binary to a directory in your PATH:
@@ -90,7 +116,8 @@ Minimum IAM policy:
 STEP 4: INITIALIZE YOUR VAULT
 
 Run the init command:
-  vaultctl init
+  ./run.sh run init
+  Or: vaultctl init
 
 You will be prompted to:
   1. Enter a master password (this encrypts your vault)
@@ -104,14 +131,25 @@ After initialization, your vault is created locally at:
 
 And synced to DynamoDB (if configured).
 
+Note: If using run.sh for the first time, it will automatically build
+the application before running the init command.
+
 ================================================================================
                             BASIC USAGE
 ================================================================================
 
+You can use vaultctl in two ways:
+1. Using the run.sh script: ./run.sh run [command]
+2. Directly: vaultctl [command] (after building)
+
+Both methods work the same way. The run.sh script is convenient because it
+automatically builds the application if needed.
+
 UNLOCK THE VAULT
 
 Before using most commands, you need to unlock the vault:
-  vaultctl unlock
+  ./run.sh run unlock
+  Or: vaultctl unlock
 
 Enter your master password when prompted. The vault stays unlocked for the
 duration of your CLI session.
@@ -122,7 +160,8 @@ unlock if the vault is locked.
 ADD A PASSWORD ENTRY
 
 Add a new password entry:
-  vaultctl add --name github --username user@example.com --url https://github.com/login --notes "2FA enabled"
+  ./run.sh run add --name github --username user@example.com --url https://github.com/login --notes "2FA enabled"
+  Or: vaultctl add --name github --username user@example.com --url https://github.com/login --notes "2FA enabled"
 
 Flags:
   --name     (required) Name/identifier for the entry
@@ -134,29 +173,35 @@ Flags:
 The password will be prompted securely (hidden input).
 
 Example:
-  vaultctl add --name "Work Email" --username "john@company.com"
+  ./run.sh run add --name "Work Email" --username "john@company.com"
+  Or: vaultctl add --name "Work Email" --username "john@company.com"
   Enter password: [hidden]
 
 GET A PASSWORD ENTRY
 
 Retrieve a password entry by name or ID:
-  vaultctl get github
-  vaultctl get <entry-id>
+  ./run.sh run get github
+  ./run.sh run get <entry-id>
+  Or: vaultctl get github
+  Or: vaultctl get <entry-id>
 
 This displays all information for the entry including the password.
 
 LIST ALL ENTRIES
 
 List all entries without showing passwords:
-  vaultctl list
+  ./run.sh run list
+  Or: vaultctl list
 
 Output shows: Name, Username, URL, Last Updated
 
 REMOVE AN ENTRY
 
 Delete an entry:
-  vaultctl remove github
-  vaultctl remove <entry-id>
+  ./run.sh run remove github
+  ./run.sh run remove <entry-id>
+  Or: vaultctl remove github
+  Or: vaultctl remove <entry-id>
 
 Flags:
   --no-sync  (optional) Don't sync to DynamoDB after removing
@@ -164,7 +209,8 @@ Flags:
 SYNC WITH DYNAMODB
 
 Sync your local vault with the remote DynamoDB vault:
-  vaultctl sync
+  ./run.sh run sync
+  Or: vaultctl sync
 
 This will:
 - Pull the latest version from DynamoDB if it's newer
@@ -176,20 +222,23 @@ If there's a conflict, you'll be prompted to resolve it.
 CREATE A BACKUP
 
 Create an encrypted backup of your vault:
-  vaultctl backup
+  ./run.sh run backup
+  Or: vaultctl backup
 
 This creates a backup file at:
   ~/.vaultctl/backups/vault-YYYY-MM-DDTHH-MM-SSZ.enc
 
 Or specify a custom path:
-  vaultctl backup /path/to/backup.enc
+  ./run.sh run backup /path/to/backup.enc
+  Or: vaultctl backup /path/to/backup.enc
 
 The backup is encrypted with the same encryption as your vault.
 
 ROTATE MASTER PASSWORD
 
 Change your master password:
-  vaultctl rotate-master
+  ./run.sh run rotate-master
+  Or: vaultctl rotate-master
 
 You will be prompted to:
   1. Enter your current master password
@@ -225,7 +274,52 @@ The config file is created automatically on first use.
                             EXAMPLES
 ================================================================================
 
-EXAMPLE 1: Complete Workflow
+EXAMPLE 1: Complete Workflow (Using run.sh)
+
+1. Build the application:
+   ./run.sh build
+   [INFO] Checking prerequisites...
+   [SUCCESS] Go is installed (version: 1.24.3)
+   [SUCCESS] AWS CLI is installed
+   [SUCCESS] vaultctl built successfully!
+
+2. Initialize vault:
+   ./run.sh run init
+   Enter master password: ********
+   Confirm master password: ********
+   Vault initialized and synced to DynamoDB
+
+3. Add entries:
+   ./run.sh run add --name "Gmail" --username "me@gmail.com" --url "https://gmail.com"
+   Enter password: ********
+   Entry 'Gmail' added successfully
+
+   ./run.sh run add --name "GitHub" --username "developer" --url "https://github.com"
+   Enter password: ********
+   Entry 'GitHub' added successfully
+
+4. List entries:
+   ./run.sh run list
+   NAME    USERNAME    URL                  UPDATED
+   Gmail   me@gmail.com https://gmail.com    2025-01-16 10:30:00
+   GitHub  developer   https://github.com    2025-01-16 10:31:00
+
+5. Get an entry:
+   ./run.sh run get Gmail
+   Name: Gmail
+   Username: me@gmail.com
+   Password: mypassword123
+   URL: https://gmail.com
+   Created: 2025-01-16 10:30:00
+   Updated: 2025-01-16 10:30:00
+
+6. Sync with remote:
+   ./run.sh run sync
+   Vault synced successfully (version 3)
+
+ALTERNATIVE: Using vaultctl directly (after building)
+
+If you've already built vaultctl, you can use it directly:
 
 1. Initialize vault:
    vaultctl init
@@ -238,15 +332,10 @@ EXAMPLE 1: Complete Workflow
    Enter password: ********
    Entry 'Gmail' added successfully
 
-   vaultctl add --name "GitHub" --username "developer" --url "https://github.com"
-   Enter password: ********
-   Entry 'GitHub' added successfully
-
 3. List entries:
    vaultctl list
    NAME    USERNAME    URL                  UPDATED
    Gmail   me@gmail.com https://gmail.com    2025-01-16 10:30:00
-   GitHub  developer   https://github.com    2025-01-16 10:31:00
 
 4. Get an entry:
    vaultctl get Gmail
@@ -266,25 +355,54 @@ EXAMPLE 2: Working Offline
 If DynamoDB is not available, you can still use vaultctl locally:
 
 1. Unlock vault:
+   ./run.sh run unlock
+   Enter master password: ********
+   Vault unlocked successfully
+
+   Or if using vaultctl directly:
    vaultctl unlock
    Enter master password: ********
    Vault unlocked successfully
 
 2. Add entries (they won't sync, but will be saved locally):
+   ./run.sh run add --name "Local Entry" --no-sync
+   
+   Or:
    vaultctl add --name "Local Entry" --no-sync
 
 3. When DynamoDB is available again:
+   ./run.sh run sync
+   
+   Or:
    vaultctl sync
 
 EXAMPLE 3: Backup and Restore
 
 1. Create backup:
+   ./run.sh run backup
+   Backup created at: ~/.vaultctl/backups/vault-2025-01-16T10-00-00Z.enc
+
+   Or:
    vaultctl backup
    Backup created at: ~/.vaultctl/backups/vault-2025-01-16T10-00-00Z.enc
 
 2. To restore from backup:
    - Copy the backup file to your vault location
    - Or use it as a reference (it's encrypted, so you still need master password)
+
+EXAMPLE 4: Using run.sh Features
+
+1. Check if everything is set up correctly:
+   ./run.sh
+   This will check prerequisites, build if needed, and show vaultctl help
+
+2. Build and run in one command:
+   ./run.sh build-and-run init
+   This builds the application and immediately runs the init command
+
+3. Clean build artifacts:
+   ./run.sh clean
+   Removes the vaultctl binary (useful for a fresh build)
 
 ================================================================================
                             TROUBLESHOOTING
@@ -430,6 +548,36 @@ All operations work locally without DynamoDB.
 ================================================================================
                             COMMAND REFERENCE
 ================================================================================
+
+USING RUN.SH SCRIPT
+
+The run.sh script provides a convenient way to build and run vaultctl:
+
+./run.sh build
+  Build the application (checks prerequisites, downloads deps, compiles)
+
+./run.sh run [command] [args...]
+  Run vaultctl with the specified command and arguments
+  Example: ./run.sh run init
+  Example: ./run.sh run add --name github --username user@example.com
+
+./run.sh build-and-run [command] [args...]
+  Build the application and then run it with the specified command
+  Example: ./run.sh build-and-run list
+
+./run.sh clean
+  Remove build artifacts (the vaultctl binary)
+
+./run.sh help
+  Show run.sh usage information
+
+./run.sh
+  If no command is specified, checks prerequisites, builds if needed,
+  and shows vaultctl help
+
+DIRECT VAULTCTL COMMANDS
+
+Once built, you can run vaultctl directly:
 
 vaultctl init
   Initialize a new vault

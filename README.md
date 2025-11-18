@@ -2,6 +2,12 @@
 
 A zero-knowledge CLI password manager with client-side encryption. All encryption and decryption happens locally. The server (DynamoDB) only stores encrypted blobs and never sees your master password or decrypted data.
 
+## Platform Support
+
+vaultctl works on **Windows**, **macOS**, and **Linux**. The Go binary is cross-platform and uses standard libraries for file paths, terminal input, and OS operations.
+
+**Note:** The `run.sh` script is Unix-specific (bash) and only works on macOS and Linux. On Windows, you can build and run the binary directly, or use Windows Subsystem for Linux (WSL) to use the script.
+
 ## Features
 
 - **Zero-knowledge architecture**: All encryption/decryption happens client-side
@@ -17,9 +23,13 @@ A zero-knowledge CLI password manager with client-side encryption. All encryptio
 ### Prerequisites
 
 - Go 1.23 or later installed
-- Terraform 1.0 or later installed
+- Terraform 1.0 or later installed (for AWS infrastructure deployment)
 - AWS CLI configured (for Terraform and vaultctl access)
 - AWS account with permissions to create DynamoDB tables, IAM users, and Secrets Manager secrets
+
+**Platform-specific notes:**
+- **Windows:** Use PowerShell or Command Prompt. The `run.sh` script requires WSL or Git Bash.
+- **macOS/Linux:** Full support including the `run.sh` script.
 
 ### Build the Application
 
@@ -33,9 +43,9 @@ go build -o vaultctl
 
 This creates an executable named "vaultctl" in the current directory.
 
-**OPTION B: Using run.sh Script (Recommended)**
+**OPTION B: Using run.sh Script (macOS/Linux only)**
 
-The project includes a convenient `run.sh` script that automates building and running the application.
+The project includes a convenient `run.sh` script that automates building and running the application. **This script only works on Unix-like systems (macOS, Linux, or WSL on Windows).**
 
 First, make the script executable:
 
@@ -68,6 +78,8 @@ For more information about run.sh:
 ```bash
 ./run.sh help
 ```
+
+**Windows users:** On Windows, use Option A (Manual Build) or install via `go install`. You can also use WSL (Windows Subsystem for Linux) to run the `run.sh` script.
 
 ### Install (Optional)
 
@@ -770,14 +782,21 @@ If DynamoDB is not available, you can still use vaultctl locally:
 
 ## File Locations
 
-Default file locations (on Unix-like systems):
+Default file locations:
 
+**macOS/Linux:**
 - **Configuration:** `~/.vaultctl/config.json`
 - **Vault file:** `~/.vaultctl/vault.db`
 - **Session file:** `~/.vaultctl/session.json` (Contains encrypted session data - automatically managed)
 - **Backups:** `~/.vaultctl/backups/vault-*.enc`
 
-On Windows, replace `~` with `%USERPROFILE%`
+**Windows:**
+- **Configuration:** `%USERPROFILE%\.vaultctl\config.json`
+- **Vault file:** `%USERPROFILE%\.vaultctl\vault.db`
+- **Session file:** `%USERPROFILE%\.vaultctl\session.json`
+- **Backups:** `%USERPROFILE%\.vaultctl\backups\vault-*.enc`
+
+The application automatically uses the correct path separators for your operating system.
 
 ## Advanced Usage
 

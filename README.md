@@ -28,7 +28,7 @@ vaultctl works on **Windows**, **macOS**, and **Linux**. The Go binary is cross-
 - AWS account with permissions to create DynamoDB tables, IAM users, and Secrets Manager secrets
 
 **Platform-specific notes:**
-- **Windows:** Use PowerShell or Command Prompt. The `run.sh` script requires WSL or Git Bash.
+- **Windows:** Use PowerShell or Command Prompt. Use `run.bat` or `run.ps1` scripts (included). The `run.sh` script requires WSL or Git Bash.
 - **macOS/Linux:** Full support including the `run.sh` script.
 
 ### Build the Application
@@ -79,7 +79,33 @@ For more information about run.sh:
 ./run.sh help
 ```
 
-**Windows users:** On Windows, use Option A (Manual Build) or install via `go install`. You can also use WSL (Windows Subsystem for Linux) to run the `run.sh` script.
+**Windows users:** On Windows, you can use:
+- **Option A (Manual Build):** Build directly with `go build -o vaultctl.exe`
+- **Option B (Windows Scripts):** Use `run.bat` (batch file) or `run.ps1` (PowerShell script) - see below
+- **WSL:** Use WSL (Windows Subsystem for Linux) to run the `run.sh` script
+
+**Windows Scripts:**
+
+The project includes Windows equivalents of the `run.sh` script:
+
+- **`run.bat`** - Batch file (works on all Windows versions)
+  ```cmd
+  run.bat build
+  run.bat run init
+  run.bat run add --name github --username user@example.com
+  ```
+
+- **`run.ps1`** - PowerShell script (requires PowerShell, better features)
+  ```powershell
+  .\run.ps1 build
+  .\run.ps1 run init
+  .\run.ps1 run add --name github --username user@example.com
+  ```
+
+  **Note:** If you get an execution policy error with PowerShell, run:
+  ```powershell
+  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+  ```
 
 ### Install (Optional)
 
@@ -860,9 +886,11 @@ vaultctl uses session-based unlocking for convenience:
 
 ## Command Reference
 
-### Using run.sh Script
+### Using Build Scripts
 
-The run.sh script provides a convenient way to build and run vaultctl:
+**macOS/Linux - run.sh:**
+
+The `run.sh` script provides a convenient way to build and run vaultctl:
 
 ```bash
 ./run.sh build
@@ -886,6 +914,30 @@ The run.sh script provides a convenient way to build and run vaultctl:
 ./run.sh
 # If no command is specified, checks prerequisites, builds if needed,
 # and shows vaultctl help
+```
+
+**Windows - run.bat or run.ps1:**
+
+Windows users can use the equivalent batch or PowerShell scripts:
+
+```cmd
+REM Using run.bat (Command Prompt)
+run.bat build
+run.bat run init
+run.bat run add --name github --username user@example.com
+run.bat build-and-run list
+run.bat clean
+run.bat help
+```
+
+```powershell
+# Using run.ps1 (PowerShell)
+.\run.ps1 build
+.\run.ps1 run init
+.\run.ps1 run add --name github --username user@example.com
+.\run.ps1 build-and-run list
+.\run.ps1 clean
+.\run.ps1 help
 ```
 
 ### Direct vaultctl Commands
